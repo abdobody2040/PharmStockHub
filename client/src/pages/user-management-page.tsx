@@ -56,7 +56,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { User, RoleType } from "@shared/schema";
+import { User, RoleType, Specialty } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -97,7 +97,7 @@ export default function UserManagementPage() {
     queryKey: ["/api/users"],
   });
 
-  const { data: specialties = [] } = useQuery({
+  const { data: specialties = [] } = useQuery<Specialty[]>({
     queryKey: ["/api/specialties"],
   });
 
@@ -212,7 +212,7 @@ export default function UserManagementPage() {
       username: user.username,
       role: user.role as RoleType,
       region: user.region || "",
-      specialtyId: user.specialtyId || "",
+      specialtyId: user.specialtyId !== null && user.specialtyId !== undefined ? String(user.specialtyId) : "",
     });
     setShowEditUserModal(true);
   };

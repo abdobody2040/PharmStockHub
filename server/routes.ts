@@ -16,7 +16,7 @@ import {
   insertStockMovementSchema,
   insertCategorySchema
 } from "@shared/schema";
-import { User } from "@shared/schema";
+import { User as ImportedUser } from "@shared/schema";
 
 // Add multer type extensions to Request
 declare global {
@@ -63,8 +63,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/specialties", 
     isAuthenticated, 
     hasPermission("canManageSpecialties"),
-    (req, res, next) => {
-      if (req.user.role !== 'ceo' && req.user.role !== 'admin') {
+    (req: Request, res: Response, next: NextFunction) => {
+      const user = req.user as ImportedUser;
+      if (!user || (user.role !== 'ceo' && user.role !== 'admin')) {
         return res.status(403).json({ message: "Only CEO and Admin can manage specialties" });
       }
       next();
@@ -83,8 +84,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/specialties/:id", 
     isAuthenticated, 
     hasPermission("canManageSpecialties"),
-    (req, res, next) => {
-      if (req.user.role !== 'ceo' && req.user.role !== 'admin') {
+    (req: Request, res: Response, next: NextFunction) => {
+      const user = req.user as ImportedUser;
+      if (!user || (user.role !== 'ceo' && user.role !== 'admin')) {
         return res.status(403).json({ message: "Only CEO and Admin can manage specialties" });
       }
       next();
@@ -109,8 +111,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/specialties/:id", 
     isAuthenticated, 
     hasPermission("canManageSpecialties"),
-    (req, res, next) => {
-      if (req.user.role !== 'ceo' && req.user.role !== 'admin') {
+    (req: Request, res: Response, next: NextFunction) => {
+      const user = req.user as ImportedUser;
+      if (!user || (user.role !== 'ceo' && user.role !== 'admin')) {
         return res.status(403).json({ message: "Only CEO and Admin can manage specialties" });
       }
       next();
@@ -260,7 +263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Convert price from dollars to cents (stored as integer)
           price: req.body.price ? Math.round(parseFloat(req.body.price) * 100) : 0,
           // Add the current user as creator
-          createdBy: (req.user as User).id
+          createdBy: (req.user as ImportedUser).id
         };
 
         // Handle image upload
@@ -418,7 +421,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (movementData.quantity) movementData.quantity = parseInt(movementData.quantity);
 
         // Set current user as the one who moved the stock
-        movementData.movedBy = (req.user as User).id;
+        const user = req.user as ImportedUser;
+        if (!user) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        movementData.movedBy = user.id;
 
         // Validate
         const validatedData = insertStockMovementSchema.parse(movementData);
@@ -567,9 +574,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res, next) => {
       try {
         const id = parseInt(req.params.id);
+        const currentUser = req.user as ImportedUser;
 
         // Don't allow deleting the current user
-        if (id === (req.user as User).id) {
+        if (!currentUser || id === currentUser.id) {
           return res.status(400).json({ message: "Cannot delete your own account" });
         }
 

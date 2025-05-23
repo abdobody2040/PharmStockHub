@@ -5,14 +5,18 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User, ROLE_PERMISSIONS } from "@shared/schema";
+import { User as ImportedUser, ROLE_PERMISSIONS } from "@shared/schema";
+import type { OrgConfig } from "./config"; // Import OrgConfig
 import multer from "multer";
 import path from "path";
 import fs from "fs";
 
 declare global {
   namespace Express {
-    interface User extends User {}
+    interface User extends ImportedUser {}
+    interface Request {
+      orgConfig?: OrgConfig;
+    }
   }
 }
 
@@ -67,7 +71,7 @@ export function setupAuth(app: Express) {
     secret: process.env.SESSION_SECRET || "pharmastock-secret-key",
     resave: false,
     saveUninitialized: false,
-    store: storage.sessionStore,
+    store: storage.sessionStore as any, // TODO: Revisit this type casting
     cookie: {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
     }
@@ -92,7 +96,7 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user: ImportedUser, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
@@ -165,7 +169,7 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
+    passport.authenticate("local", (err: Error | null, user: ImportedUser | false, info: any) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: info?.message || "Login failed" });
       
@@ -190,7 +194,7 @@ export function setupAuth(app: Express) {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
     
     // Remove password from response
-    const { password, ...userWithoutPassword } = req.user as User;
+    const { password, ...userWithoutPassword } = req.user as ImportedUser;
     res.json(userWithoutPassword);
   });
 

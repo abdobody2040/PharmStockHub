@@ -102,9 +102,9 @@ export default function StockMovementPage() {
     return categories.find(cat => cat.id === id);
   };
 
-  const getUserById = (id: number | null) => {
-    if (id === null) return { name: "Central Warehouse", role: "warehouse" };
-    return users.find(user => user.id === id) || { name: "Unknown User", role: "unknown" };
+  const getUserById = (id: number | null): Partial<User> & { name: string, role: string, region: string | null } => {
+    if (id === null) return { name: "Central Warehouse", role: "warehouse", region: null };
+    return users.find(user => user.id === id) || { name: "Unknown User", role: "unknown", region: null };
   };
 
   const handleSubmitMovement = (data: any) => {

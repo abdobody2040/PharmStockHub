@@ -100,7 +100,7 @@ export function BarcodeScanner({ onScan, isOpen, onClose }: BarcodeScannerProps)
             <div className="relative">
               <div className="w-full max-w-sm aspect-[4/3] bg-muted rounded-md overflow-hidden relative">
                 <video 
-                  ref={ref} 
+                  ref={ref as any} 
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 border-2 border-dashed border-primary/50 pointer-events-none"></div>
