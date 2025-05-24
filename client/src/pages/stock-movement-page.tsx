@@ -102,9 +102,9 @@ export default function StockMovementPage() {
     return categories.find(cat => cat.id === id);
   };
 
-  const getUserById = (id: number | null): Partial<User> & { name: string, role: string, region: string | null } => {
-    if (id === null) return { name: "Central Warehouse", role: "warehouse", region: null };
-    return users.find(user => user.id === id) || { name: "Unknown User", role: "unknown", region: null };
+  const getUserById = (id: number | null) => {
+    if (id === null) return { name: "Central Warehouse", role: "warehouse" };
+    return users.find(user => user.id === id) || { name: "Unknown User", role: "unknown" };
   };
 
   const handleSubmitMovement = (data: any) => {
@@ -194,7 +194,7 @@ export default function StockMovementPage() {
                             <div>
                               <div className="text-sm text-gray-900">{fromUser?.name}</div>
                               <div className="text-sm text-gray-500">
-                                {fromUser?.role === "warehouse" ? "Main Storage" : fromUser?.region || "—"}
+                                {fromUser?.role === "warehouse" ? "Main Storage" : (fromUser as User)?.region || "—"}
                               </div>
                             </div>
                           </div>
@@ -205,7 +205,7 @@ export default function StockMovementPage() {
                             <div>
                               <div className="text-sm text-gray-900">{toUser?.name}</div>
                               <div className="text-sm text-gray-500">
-                                {toUser?.role === "warehouse" ? "Main Storage" : `${toUser?.role} - ${toUser?.region || "No region"}`}
+                                {toUser?.role === "warehouse" ? "Main Storage" : `${toUser?.role} - ${(toUser as User)?.region || "No region"}`}
                               </div>
                             </div>
                           </div>

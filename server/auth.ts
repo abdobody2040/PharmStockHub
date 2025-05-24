@@ -5,17 +5,16 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User as ImportedUser, ROLE_PERMISSIONS } from "@shared/schema";
-import type { OrgConfig } from "./config"; // Import OrgConfig
+import { User as AppUser, ROLE_PERMISSIONS } from "@shared/schema"; // Renamed User to AppUser
 import multer from "multer";
 import path from "path";
 import fs from "fs";
 
 declare global {
   namespace Express {
-    interface User extends ImportedUser {}
+    interface User extends AppUser {} // Use AppUser here
     interface Request {
-      orgConfig?: OrgConfig;
+      orgConfig?: any; // Add orgConfig to Request type
     }
   }
 }
@@ -71,7 +70,7 @@ export function setupAuth(app: Express) {
     secret: process.env.SESSION_SECRET || "pharmastock-secret-key",
     resave: false,
     saveUninitialized: false,
-    store: storage.sessionStore as any, // TODO: Revisit this type casting
+    store: storage.sessionStore,
     cookie: {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
     }
@@ -96,7 +95,7 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user: ImportedUser, done) => done(null, user.id));
+  passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
@@ -169,7 +168,7 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: Error | null, user: ImportedUser | false, info: any) => {
+    passport.authenticate("local", (err: any, user: AppUser | false, info: any) => { // Added types for err, user, info
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: info?.message || "Login failed" });
       
@@ -177,7 +176,7 @@ export function setupAuth(app: Express) {
         if (err) return next(err);
         
         // Remove password from response
-        const { password, ...userWithoutPassword } = user;
+        const { password, ...userWithoutPassword } = user as AppUser; // Cast user to AppUser
         res.status(200).json(userWithoutPassword);
       });
     })(req, res, next);
@@ -194,7 +193,7 @@ export function setupAuth(app: Express) {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
     
     // Remove password from response
-    const { password, ...userWithoutPassword } = req.user as ImportedUser;
+    const { password, ...userWithoutPassword } = req.user as AppUser; // Use AppUser here
     res.json(userWithoutPassword);
   });
 

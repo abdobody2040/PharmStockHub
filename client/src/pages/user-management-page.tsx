@@ -56,7 +56,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { User, RoleType, Specialty } from "@shared/schema";
+import { User, RoleType, Specialty } from "@shared/schema"; // Assuming Specialty is exported from @shared/schema
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -97,7 +97,7 @@ export default function UserManagementPage() {
     queryKey: ["/api/users"],
   });
 
-  const { data: specialties = [] } = useQuery<Specialty[]>({
+  const { data: specialties = [] } = useQuery<Specialty[]>({ // Add Specialty type
     queryKey: ["/api/specialties"],
   });
 
@@ -212,7 +212,7 @@ export default function UserManagementPage() {
       username: user.username,
       role: user.role as RoleType,
       region: user.region || "",
-      specialtyId: user.specialtyId !== null && user.specialtyId !== undefined ? String(user.specialtyId) : "",
+      specialtyId: user.specialtyId ? String(user.specialtyId) : "", // Convert to string
     });
     setShowEditUserModal(true);
   };
@@ -515,7 +515,7 @@ export default function UserManagementPage() {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="0">No specialty</SelectItem>
-                        {specialties.map((specialty) => (
+                        {(specialties as Specialty[]).map((specialty: Specialty) => ( // Add Specialty type
                           <SelectItem key={specialty.id} value={specialty.id.toString()}>
                             {specialty.name}
                           </SelectItem>
@@ -654,7 +654,7 @@ export default function UserManagementPage() {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="0">No specialty</SelectItem>
-                        {specialties.map((specialty) => (
+                        {(specialties as Specialty[]).map((specialty: Specialty) => ( // Add Specialty type
                           <SelectItem key={specialty.id} value={specialty.id.toString()}>
                             {specialty.name}
                           </SelectItem>
