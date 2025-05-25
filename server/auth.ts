@@ -1,6 +1,7 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
+import rateLimit from 'express-rate-limit'; // Import rateLimit
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
@@ -141,7 +142,17 @@ export function setupAuth(app: Express) {
   };
 
   // Authentication routes
-  app.post("/api/register", async (req, res, next) => {
+
+  // Define rate limiter for authentication routes
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // Limit each IP to 10 login/register requests per windowMs
+    message: "Too many login attempts from this IP, please try again after 15 minutes",
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  });
+
+  app.post("/api/register", authLimiter, async (req, res, next) => {
     try {
       const { username, password, name, role, region } = req.body;
       

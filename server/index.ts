@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from 'helmet'; // Import helmet
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { getOrgConfig, type OrgConfig } from './config';
@@ -15,6 +16,9 @@ declare global {
 }
 
 const app = express();
+
+// Apply helmet middleware
+app.use(helmet());
 
 // Create default admin user if it doesn't exist
 async function createDefaultAdmin() {
@@ -67,7 +71,11 @@ app.use((req, res, next) => {
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        if (process.env.NODE_ENV === 'production') {
+          logLine += ` :: [Response body hidden in production]`;
+        } else {
+          logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        }
       }
 
       if (logLine.length > 80) {
