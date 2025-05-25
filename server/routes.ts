@@ -14,9 +14,33 @@ import multer from "multer";
 import { 
   extendedInsertStockItemSchema, 
   insertStockMovementSchema,
-  insertCategorySchema
+  insertCategorySchema,
+  RoleType // Import RoleType
 } from "@shared/schema";
 import { User } from "@shared/schema";
+import { z } from "zod"; // Import z
+
+// Define Zod schemas for route parameters
+const idParamSchema = z.object({
+  id: z.coerce.number().int().positive({ message: "ID must be a positive integer" }),
+});
+
+const daysQuerySchema = z.object({
+  // Default to 30 if 'days' is not provided or is an empty string
+  days: z.preprocess(val => (val === "" || val === undefined) ? "30" : val, 
+    z.coerce.number().int().min(1, { message: "Days must be a positive integer" })
+  )
+});
+
+const userIdQuerySchema = z.object({
+  userId: z.coerce.number().int().positive({ message: "User ID must be a positive integer" }).optional(),
+});
+
+// Define possible roles based on extendedInsertUserSchema
+const rolesEnum = extendedInsertUserSchema.shape.role;
+const roleQuerySchema = z.object({
+  role: rolesEnum.optional(),
+});
 
 // Add multer type extensions to Request
 declare global {
@@ -59,23 +83,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/specialties/:id - Add Zod validation for id
+  app.get("/api/specialties/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const { id } = idParamSchema.parse(req.params);
+      const specialty = await storage.getSpecialty(id);
+
+      if (!specialty) {
+        return res.status(404).json({ message: "Specialty not found" });
+      }
+
+      res.json(specialty);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.post(
     "/api/specialties", 
     isAuthenticated, 
     hasPermission("canManageSpecialties"),
-    (req, res, next) => {
-      // The `isAuthenticated` and `hasPermission` middleware should have already run
-      // and ensured req.user is defined. However, to satisfy TypeScript's strict checks
-      // in this separate middleware, we add a check.
-      if (!req.user) {
-        // This case should ideally not be reached if prior middleware worked correctly.
-        return res.status(401).json({ message: "Unauthorized: User not authenticated" });
-      }
-      if (req.user.role !== 'ceo' && req.user.role !== 'admin') {
-        return res.status(403).json({ message: "Only CEO and Admin can manage specialties" });
-      }
-      next();
-    },
+    // Removed redundant inline middleware
     async (req, res, next) => {
       try {
         const specialty = await storage.createSpecialty(req.body);
@@ -90,19 +118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/specialties/:id", 
     isAuthenticated, 
     hasPermission("canManageSpecialties"),
-    (req, res, next) => {
-      // The `isAuthenticated` and `hasPermission` middleware should have already run
-      // and ensured req.user is defined. However, to satisfy TypeScript's strict checks
-      // in this separate middleware, we add a check.
-      if (!req.user) {
-        // This case should ideally not be reached if prior middleware worked correctly.
-        return res.status(401).json({ message: "Unauthorized: User not authenticated" });
-      }
-      if (req.user.role !== 'ceo' && req.user.role !== 'admin') {
-        return res.status(403).json({ message: "Only CEO and Admin can manage specialties" });
-      }
-      next();
-    },
+    // Removed redundant inline middleware
     async (req, res, next) => {
       try {
         const id = parseInt(req.params.id);
@@ -123,19 +139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/specialties/:id", 
     isAuthenticated, 
     hasPermission("canManageSpecialties"),
-    (req, res, next) => {
-      // The `isAuthenticated` and `hasPermission` middleware should have already run
-      // and ensured req.user is defined. However, to satisfy TypeScript's strict checks
-      // in this separate middleware, we add a check.
-      if (!req.user) {
-        // This case should ideally not be reached if prior middleware worked correctly.
-        return res.status(401).json({ message: "Unauthorized: User not authenticated" });
-      }
-      if (req.user.role !== 'ceo' && req.user.role !== 'admin') {
-        return res.status(403).json({ message: "Only CEO and Admin can manage specialties" });
-      }
-      next();
-    },
+    // Removed redundant inline middleware
     async (req, res, next) => {
       try {
         const id = parseInt(req.params.id);
@@ -164,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/categories/:id", isAuthenticated, async (req, res, next) => {
     try {
-      const id = parseInt(req.params.id);
+      const { id } = idParamSchema.parse(req.params);
       const category = await storage.getCategory(id);
 
       if (!category) {
@@ -242,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/stock-items/expiring", isAuthenticated, async (req, res, next) => {
     try {
-      const days = parseInt(req.query.days as string) || 30;
+      const { days } = daysQuerySchema.parse(req.query);
       const items = await storage.getExpiringItems(days);
       res.json(items);
     } catch (error) {
@@ -252,7 +256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/stock-items/:id", isAuthenticated, async (req, res, next) => {
     try {
-      const id = parseInt(req.params.id);
+      const { id } = idParamSchema.parse(req.params);
       const item = await storage.getStockItem(id);
 
       if (!item) {
@@ -406,7 +410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Stock Allocations
   app.get("/api/allocations", isAuthenticated, async (req, res, next) => {
     try {
-      const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
+      const { userId } = userIdQuerySchema.parse(req.query);
       const allocations = await storage.getAllocations(userId);
       res.json(allocations);
     } catch (error) {
@@ -472,11 +476,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Users
   app.get("/api/users", isAuthenticated, async (req, res, next) => {
     try {
-      const role = req.query.role as string | undefined;
+      const { role } = roleQuerySchema.parse(req.query);
 
       let users;
       if (role) {
-        users = await storage.getUsersByRole(role as any);
+        users = await storage.getUsersByRole(role);
       } else {
         users = await storage.getUsers();
       }
@@ -496,7 +500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get a single user
   app.get("/api/users/:id", isAuthenticated, async (req, res, next) => {
     try {
-      const id = parseInt(req.params.id);
+      const { id } = idParamSchema.parse(req.params);
       const user = await storage.getUser(id);
 
       if (!user) {

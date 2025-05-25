@@ -1,4 +1,7 @@
-import { users, categories, specialties, stockItems, stockAllocations, stockMovements } from "@shared/schema";
+import { 
+  users, categories, specialties, stockItems, stockAllocations, stockMovements,
+  systemSettings, insertSystemSettingSchema, SystemSetting // Added systemSettings imports
+} from "@shared/schema";
 import type { 
   User, InsertUser, 
   Category, InsertCategory,
@@ -6,7 +9,8 @@ import type {
   StockItem, InsertStockItem,
   StockAllocation, InsertStockAllocation,
   StockMovement, InsertStockMovement,
-  RoleType
+  RoleType,
+  // SystemSetting - already imported from schema
 } from "@shared/schema";
 import { ROLE_PERMISSIONS } from "@shared/schema";
 import session, { Store as SessionStore } from "express-session";
@@ -68,6 +72,10 @@ export interface IStorage {
 
   // Session store
   sessionStore: SessionStore;
+
+  // System Settings
+  getSystemSettings(): Promise<any>;
+  updateSystemSettings(settings: any): Promise<void>;
 }
 
 // In-memory implementation for development
@@ -377,26 +385,57 @@ async updateUser(id: number, userData: Partial<User>): Promise<User | undefined>
 // Database storage implementation
 export class DatabaseStorage implements IStorage {
   sessionStore: SessionStore;
-  private systemSettings: Map<string, any>;
+  // private systemSettings: Map<string, any>; // Removed map-based system settings
 
   constructor() {
     this.sessionStore = new PostgresSessionStore({ 
       pool, 
       createTableIfMissing: true 
     }) as SessionStore;
-    this.systemSettings = new Map();
+    // this.systemSettings = new Map(); // Removed map-based system settings
     this.initializeData();
   }
 
   // System settings methods
   async getSystemSettings(): Promise<any> {
-    return Object.fromEntries(this.systemSettings);
+    const settingsArray = await db.select().from(systemSettings);
+    const settingsObject: { [key: string]: any } = {};
+    for (const setting of settingsArray) {
+      try {
+        // Attempt to parse if value looks like JSON
+        if ((setting.value?.startsWith('{') && setting.value?.endsWith('}')) || 
+            (setting.value?.startsWith('[') && setting.value?.endsWith(']'))) {
+          settingsObject[setting.key] = JSON.parse(setting.value);
+        } else {
+          settingsObject[setting.key] = setting.value;
+        }
+      } catch (e) {
+        // If parsing fails, use the raw value
+        settingsObject[setting.key] = setting.value;
+      }
+    }
+    return settingsObject;
   }
 
   async updateSystemSettings(settings: any): Promise<void> {
-    Object.entries(settings).forEach(([key, value]) => {
-      this.systemSettings.set(key, value);
-    });
+    const settingsToUpsert = Object.entries(settings).map(([key, value]) => ({
+      key,
+      value: typeof value === 'string' ? value : JSON.stringify(value),
+    }));
+
+    if (settingsToUpsert.length === 0) {
+      return;
+    }
+
+    // Using Drizzle ORM's onConflictDoUpdate for "upsert"
+    // This assumes your 'key' column has a unique constraint or is the primary key
+    await db
+      .insert(systemSettings)
+      .values(settingsToUpsert)
+      .onConflictDoUpdate({ 
+        target: systemSettings.key, 
+        set: { value: sql`excluded.value` } 
+      });
   }
 
   // Initialize with default data if needed
